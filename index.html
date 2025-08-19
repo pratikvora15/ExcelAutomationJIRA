@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>JIRA CSV Automation</title>
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+   <style>
+       * {
+           margin: 0;
+           padding: 0;
+           box-sizing: border-box;
+       }
+
+       body {
+           font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+           background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+           min-height: 100vh;
+           padding: 20px;
+       }
+
+       .container {
+           max-width: 1200px;
+           margin: 0 auto;
+           background: white;
+           border-radius: 20px;
+           box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+           overflow: hidden;
+       }
+
+       .header {
+           background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+           color: white;
+           padding: 30px;
+           text-align: center;
+       }
+
+       .header h1 {
+           font-size: 2.5rem;
+           margin-bottom: 10px;
+           font-weight: 300;
+       }
+
+       .header p {
+           opacity: 0.9;
+           font-size: 1.1rem;
+       }
+
+       .main-content {
+           padding: 40px;
+       }
+
+       .upload-section {
+           background: #f8f9fa;
+           border-radius: 15px;
+           padding: 30px;
+           margin-bottom: 30px;
+           border: 2px dashed #dee2e6;
+           transition: all 0.3s ease;
+       }
+
+       .upload-section:hover {
+           border-color: #667eea;
+           background: #f0f2ff;
+       }
+
+       .file-input-wrapper {
+           position: relative;
+           display: inline-block;
+           cursor: pointer;
+       }
+
+       .file-input {
+           position: absolute;
+           opacity: 0;
+           width: 100%;
+           height: 100%;
+           cursor: pointer;
+       }
+
+       .file-input-button {
+           background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+           color: white;
+           padding: 15px 30px;
+           border-radius: 50px;
+           border: none;
+           font-size: 1.1rem;
+           font-weight: 500;
+           cursor: pointer;
+           transition: transform 0.3s ease;
+       }
+
+       .file-input-button:hover {
+           transform: translateY(-2px);
+           box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+       }
+
+       .file-info {
+           margin-top: 20px;
+           padding: 15px;
+           background: #e3f2fd;
+           border-radius: 10px;
+           display: none;
+       }
+
+       .stats-container {
+           display: grid;
+           grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+           gap: 20px;
+           margin: 30px 0;
+       }
+
+       .stat-card {
+           background: white;
+           padding: 25px;
+           border-radius: 15px;
+           box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+           text-align: center;
+           border-left: 5px solid;
+       }
+
+       .stat-card.total { border-left-color: #3498db; }
+       .stat-card.new { border-left-color: #27ae60; }
+       .stat-card.duplicates { border-left-color: #e74c3c; }
+
+       .stat-number {
+           font-size: 2.5rem;
+           font-weight: bold;
+           margin-bottom: 5px;
+       }
+
+       .stat-label {
+           color: #666;
+           text-transform: uppercase;
+           font-size: 0.9rem;
+           letter-spacing: 1px;
+       }
+
+       .data-table {
+           background: white;
+           border-radius: 15px;
+           overflow: hidden;
+           box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+       }
+
+       .table-wrapper {
+           max-height: 500px;
+           overflow: auto;
+       }
+
+       table {
+           width: 100%;
+           border-collapse: collapse;
+       }
+
+       th {
+           background: #2c3e50;
+           color: white;
+           padding: 15px;
+           text-align: left;
+           position: sticky;
+           top: 0;
+           z-index: 10;
+       }
+
+       td {
+           padding: 12px 15px;
+           border-bottom: 1px solid #eee;
+       }
+
+       tr:hover {
+           background: #f8f9fa;
+       }
+
+       .duplicate-row {
+           background: #ffeaa7 !important;
+       }
+
+       .new-row {
+           background: #d5f4e6 !important;
+       }
+
+       .export-section {
+           margin-top: 20px;
+           text-align: center;
+       }
+
+       .filter-section {
+           background: #f8f9fa;
+           padding: 25px;
+           border-radius: 15px;
+           margin: 30px 0;
+       }
+
+       .filter-section h3 {
+           font-weight: 500;
+       }
+
+       .filter-section label {
+           background: white;
+           padding: 10px 15px;
+           border-radius: 25px;
+           border: 2px solid #e9ecef;
+           cursor: pointer;
+           transition: all 0.3s ease;
+       }
+
+       .filter-section label:hover {
+           border-color: #667eea;
+           background: #f0f2ff;
+       }
+
+       .filter-section input[type="radio"]:checked + span {
+           color: #667eea;
+           font-weight: 600;
+       }
+
+       .view-toggle select {
+           font-size: 1rem;
+       }
+
+       .export-btn {
+           background: #27ae60;
+           color: white;
+           padding: 15px 30px;
+           border: none;
+           border-radius: 50px;
+           font-size: 1.1rem;
+           cursor: pointer;
+           transition: all 0.3s ease;
+           margin: 0 10px;
+       }
+
+       .export-btn:hover {
+           background: #219a52;
+           transform: translateY(-2px);
+       }
+
+       .alert {
+           padding: 15px;
+           margin: 20px 0;
+           border-radius: 10px;
+           display: none;
+       }
+
+       .alert.success {
+           background: #d4edda;
+           border: 1px solid #c3e6cb;
+           color: #155724;
+       }
+
+       .alert.error {
+           background: #f8d7da;
+           border: 1px solid #f5c6cb;
+           color: #721c24;
+       }
+
+       .progress-bar {
+           width: 100%;
+           height: 6px;
+           background: #eee;
+           border-radius: 3px;
+           overflow: hidden;
+           margin: 20px 0;
+           display: none;
+       }
+
+       .progress-fill {
+           height: 100%;
+           background: linear-gradient(90deg, #667eea, #764ba2);
+           width: 0%;
+           transition: width 0.3s ease;
+       }
+   </style>
+</head>
+<body>
+   <div class="container">
+       <div class="header">
+           <h1>JIRA CSV Automation</h1>
+           <p>Upload JIRA CSV files with automatic duplicate detection and management</p>
+       </div>
+       
+       <div class="main-content">
+           <div class="upload-section">
+               <div class="file-input-wrapper">
+                   <input type="file" id="csvFile" class="file-input" accept=".csv" />
+                   <button class="file-input-button">
+                       📁 Select JIRA CSV File
+                   </button>
+               </div>
+               
+               <div class="file-info" id="fileInfo">
+                   <strong>Selected File:</strong> <span id="fileName"></span><br>
+                   <strong>Size:</strong> <span id="fileSize"></span>
+               </div>
+               
+               <div class="progress-bar" id="progressBar">
+                   <div class="progress-fill" id="progressFill"></div>
+               </div>
+           </div>
+
+           <div class="alert" id="alertBox"></div>
+
+           <div class="stats-container">
+               <div class="stat-card total">
+                   <div class="stat-number" id="totalRecords">0</div>
+                   <div class="stat-label">Total Records</div>
+               </div>
+               <div class="stat-card new">
+                   <div class="stat-number" id="newRecords">0</div>
+                   <div class="stat-label">New Records</div>
+               </div>
+               <div class="stat-card duplicates">
+                   <div class="stat-number" id="duplicateRecords">0</div>
+                   <div class="stat-label">Duplicates Found</div>
+               </div>
+           </div>
+
+           <div class="data-table">
+               <div class="table-wrapper">
+                   <table id="dataTable">
+                       <thead id="tableHeader"></thead>
+                       <tbody id="tableBody"></tbody>
+                   </table>
+               </div>
+           </div>
+
+           <div class="filter-section">
+               <h3 style="margin-bottom: 20px; color: #2c3e50;">Export Options</h3>
+               <div style="display: flex; gap: 15px; align-items: center; margin-bottom: 20px; flex-wrap: wrap;">
+                   <label style="display: flex; align-items: center; gap: 8px;">
+                       <input type="radio" name="exportFilter" value="all" checked>
+                       <span>All Records</span>
+                   </label>
+                   <label style="display: flex; align-items: center; gap: 8px;">
+                       <input type="radio" name="exportFilter" value="new">
+                       <span>New Records Only</span>
+                   </label>
+                   <label style="display: flex; align-items: center; gap: 8px;">
+                       <input type="radio" name="exportFilter" value="duplicates">
+                       <span>Duplicates Only</span>
+                   </label>
+               </div>
+               
+               <div class="view-toggle" style="margin-bottom: 20px;">
+                   <button class="export-btn" id="toggleView" style="background: #3498db;">👁️ Toggle Table View</button>
+                   <select id="viewFilter" style="padding: 10px; border-radius: 5px; border: 1px solid #ddd; margin-left: 10px;">
+                       <option value="all">Show All Records</option>
+                       <option value="new">Show New Records Only</option>
+                       <option value="duplicates">Show Duplicates Only</option>
+                   </select>
+               </div>
+           </div>
+
+           <div class="export-section">
+               <button class="export-btn" id="exportCSV">📄 Export to CSV</button>
+               <button class="export-btn" id="exportExcel">📊 Export to Excel</button>
+           </div>
+       </div>
+   </div>
+
+   <script>
+       class JIRACSVAutomation {
+           constructor() {
+               this.allData = [];
+               this.newData = [];
+               this.duplicates = [];
+               this.existingKeys = new Set();
+               this.headers = [];
+               
+               this.initEventListeners();
+           }
+
+           initEventListeners() {
+               document.getElementById('csvFile').addEventListener('change', this.handleFileSelect.bind(this));
+               document.getElementById('exportCSV').addEventListener('click', this.exportToCSV.bind(this));
+               document.getElementById('exportExcel').addEventListener('click', this.exportToExcel.bind(this));
+               document.getElementById('toggleView').addEventListener('click', this.toggleTableView.bind(this));
+               document.getElementById('viewFilter').addEventListener('change', this.filterTableView.bind(this));
+           }
+
+           handleFileSelect(event) {
+               const file = event.target.files[0];
+               if (!file) return;
+
+               // Show file info
+               document.getElementById('fileName').textContent = file.name;
+               document.getElementById('fileSize').textContent = this.formatFileSize(file.size);
+               document.getElementById('fileInfo').style.display = 'block';
+
+               // Show progress bar
+               const progressBar = document.getElementById('progressBar');
+               progressBar.style.display = 'block';
+
+               // Parse CSV
+               Papa.parse(file, {
+                   header: true,
+                   skipEmptyLines: true,
+                   complete: this.handleCSVParse.bind(this),
+                   error: this.handleError.bind(this)
+               });
+           }
+
+           handleCSVParse(results) {
+               try {
+                   const data = results.data;
+                   if (data.length === 0) {
+                       this.showAlert('No data found in CSV file', 'error');
+                       return;
+                   }
+
+                   // Get headers
+                   this.headers = Object.keys(data[0]);
+                   
+                   // Assume first column contains the unique identifier (Issue Key)
+                   const keyColumn = this.headers[0];
+                   
+                   // Process data
+                   this.processData(data, keyColumn);
+                   
+                   // Update UI
+                   this.updateStats();
+                   this.renderTable();
+                   this.showAlert(`Successfully processed ${data.length} records. ${this.newData.length} new, ${this.duplicates.length} duplicates found.`, 'success');
+
+               } catch (error) {
+                   this.handleError(error);
+               }
+
+               // Hide progress bar
+               document.getElementById('progressBar').style.display = 'none';
+           }
+
+           processData(data, keyColumn) {
+               this.newData = [];
+               this.duplicates = [];
+
+               data.forEach(row => {
+                   const key = row[keyColumn];
+                   if (!key) return; // Skip rows without key
+
+                   if (this.existingKeys.has(key)) {
+                       this.duplicates.push(row);
+                   } else {
+                       this.newData.push(row);
+                       this.existingKeys.add(key);
+                       this.allData.push(row);
+                   }
+               });
+           }
+
+           updateStats() {
+               document.getElementById('totalRecords').textContent = this.allData.length;
+               document.getElementById('newRecords').textContent = this.newData.length;
+               document.getElementById('duplicateRecords').textContent = this.duplicates.length;
+               
+               // Update filter labels if they exist
+               const filterSection = document.querySelector('.filter-section');
+               if (filterSection) {
+                   const labels = filterSection.querySelectorAll('label span');
+                   if (labels.length >= 3) {
+                       labels[0].textContent = `All Records (${this.allData.length})`;
+                       labels[1].textContent = `New Records Only (${this.newData.length})`;
+                       labels[2].textContent = `Duplicates Only (${this.duplicates.length})`;
+                   }
+               }
+           }
+
+           renderTable(filter = 'all') {
+               const tableHeader = document.getElementById('tableHeader');
+               const tableBody = document.getElementById('tableBody');
+
+               // Clear existing content
+               tableHeader.innerHTML = '';
+               tableBody.innerHTML = '';
+
+               if (this.headers.length === 0) return;
+
+               // Create header
+               const headerRow = document.createElement('tr');
+               this.headers.forEach(header => {
+                   const th = document.createElement('th');
+                   th.textContent = header;
+                   headerRow.appendChild(th);
+               });
+               tableHeader.appendChild(headerRow);
+
+               // Determine which data to show
+               let dataToShow = [];
+               switch(filter) {
+                   case 'new':
+                       dataToShow = this.newData;
+                       break;
+                   case 'duplicates':
+                       dataToShow = this.duplicates;
+                       break;
+                   case 'all':
+                   default:
+                       dataToShow = [...this.newData, ...this.duplicates];
+                       break;
+               }
+
+               // Create rows for new data
+               this.newData.forEach(row => {
+                   if (filter === 'all' || filter === 'new') {
+                       const tr = document.createElement('tr');
+                       tr.className = 'new-row';
+                       tr.title = 'New Record';
+                       this.headers.forEach(header => {
+                           const td = document.createElement('td');
+                           td.textContent = row[header] || '';
+                           tr.appendChild(td);
+                       });
+                       tableBody.appendChild(tr);
+                   }
+               });
+
+               // Create rows for duplicates
+               this.duplicates.forEach(row => {
+                   if (filter === 'all' || filter === 'duplicates') {
+                       const tr = document.createElement('tr');
+                       tr.className = 'duplicate-row';
+                       tr.title = 'Duplicate Record (already exists)';
+                       this.headers.forEach(header => {
+                           const td = document.createElement('td');
+                           td.textContent = row[header] || '';
+                           tr.appendChild(td);
+                       });
+                       tableBody.appendChild(tr);
+                   }
+               });
+           }
+
+           exportToCSV() {
+               const selectedFilter = document.querySelector('input[name="exportFilter"]:checked').value;
+               let dataToExport = this.getFilteredData(selectedFilter);
+
+               if (dataToExport.length === 0) {
+                   this.showAlert('No data to export with selected filter', 'error');
+                   return;
+               }
+
+               const csv = Papa.unparse(dataToExport);
+               const fileName = this.getExportFileName('csv', selectedFilter);
+               this.downloadFile(csv, fileName, 'text/csv');
+               
+               this.showAlert(`Exported ${dataToExport.length} records to ${fileName}`, 'success');
+           }
+
+           exportToExcel() {
+               const selectedFilter = document.querySelector('input[name="exportFilter"]:checked').value;
+               let dataToExport = this.getFilteredData(selectedFilter);
+
+               if (dataToExport.length === 0) {
+                   this.showAlert('No data to export with selected filter', 'error');
+                   return;
+               }
+
+               const ws = XLSX.utils.json_to_sheet(dataToExport);
+               const wb = XLSX.utils.book_new();
+               
+               // Add conditional formatting for different sheets
+               if (selectedFilter === 'all') {
+                   // Create separate sheets for new and duplicate data
+                   const wsNew = XLSX.utils.json_to_sheet(this.newData);
+                   const wsDuplicates = XLSX.utils.json_to_sheet(this.duplicates);
+                   
+                   XLSX.utils.book_append_sheet(wb, ws, 'All Data');
+                   if (this.newData.length > 0) XLSX.utils.book_append_sheet(wb, wsNew, 'New Records');
+                   if (this.duplicates.length > 0) XLSX.utils.book_append_sheet(wb, wsDuplicates, 'Duplicates');
+               } else {
+                   const sheetName = selectedFilter === 'new' ? 'New Records' : 
+                                   selectedFilter === 'duplicates' ? 'Duplicates' : 'JIRA Data';
+                   XLSX.utils.book_append_sheet(wb, ws, sheetName);
+               }
+
+               const fileName = this.getExportFileName('xlsx', selectedFilter);
+               XLSX.writeFile(wb, fileName);
+               
+               this.showAlert(`Exported ${dataToExport.length} records to ${fileName}`, 'success');
+           }
+
+           getFilteredData(filter) {
+               switch(filter) {
+                   case 'new':
+                       return this.newData;
+                   case 'duplicates':
+                       return this.duplicates;
+                   case 'all':
+                   default:
+                       return this.allData;
+               }
+           }
+
+           getExportFileName(extension, filter) {
+               const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
+               const filterName = filter === 'new' ? '_new_records' : 
+                                filter === 'duplicates' ? '_duplicates' : 
+                                '_all_data';
+               return `jira_data${filterName}_${timestamp}.${extension}`;
+           }
+
+           toggleTableView() {
+               const table = document.querySelector('.data-table');
+               if (table.style.display === 'none') {
+                   table.style.display = 'block';
+                   document.getElementById('toggleView').textContent = '👁️ Hide Table';
+               } else {
+                   table.style.display = 'none';
+                   document.getElementById('toggleView').textContent = '👁️ Show Table';
+               }
+           }
+
+           filterTableView(event) {
+               const filter = event.target.value;
+               this.renderTable(filter);
+           }
+
+           downloadFile(content, fileName, contentType) {
+               const blob = new Blob([content], { type: contentType });
+               const url = window.URL.createObjectURL(blob);
+               const a = document.createElement('a');
+               a.href = url;
+               a.download = fileName;
+               document.body.appendChild(a);
+               a.click();
+               document.body.removeChild(a);
+               window.URL.revokeObjectURL(url);
+           }
+
+           formatFileSize(bytes) {
+               if (bytes === 0) return '0 Bytes';
+               const k = 1024;
+               const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+               const i = Math.floor(Math.log(bytes) / Math.log(k));
+               return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+           }
+
+           showAlert(message, type) {
+               const alertBox = document.getElementById('alertBox');
+               alertBox.textContent = message;
+               alertBox.className = `alert ${type}`;
+               alertBox.style.display = 'block';
+               
+               setTimeout(() => {
+                   alertBox.style.display = 'none';
+               }, 5000);
+           }
+
+           handleError(error) {
+               console.error('Error:', error);
+               this.showAlert('Error processing file: ' + error.message, 'error');
+               document.getElementById('progressBar').style.display = 'none';
+           }
+       }
+
+       // Initialize the application
+       document.addEventListener('DOMContentLoaded', () => {
+           new JIRACSVAutomation();
+       });
+   </script>
+</body>
+</html>
