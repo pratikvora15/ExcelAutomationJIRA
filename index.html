@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Merger - Master + New</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .main-content {
+            padding: 40px;
+        }
+
+        .upload-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .file-upload-box {
+            background: #f8f9fa;
+            border: 2px dashed #dee2e6;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .file-upload-box:hover {
+            border-color: #667eea;
+            background: #f0f2ff;
+        }
+
+        .file-upload-box.master {
+            border-color: #e74c3c;
+            background: #fdf2f2;
+        }
+
+        .file-upload-box.master:hover {
+            border-color: #c0392b;
+            background: #fbeaea;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+        }
+
+        .file-input {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .file-input-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 50px;
+            border: none;
+            font-size: 1.1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .file-input-button.master {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        }
+
+        .file-input-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .file-input-button.master:hover {
+            box-shadow: 0 5px 15px rgba(231, 76, 60, 0.4);
+        }
+
+        .file-status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .file-status.uploaded {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            display: block;
+        }
+
+        .merge-section {
+            text-align: center;
+            margin: 30px 0;
+        }
+
+        .merge-button {
+            background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+            color: white;
+            padding: 20px 40px;
+            border: none;
+            border-radius: 50px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px;
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .merge-button.enabled {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .merge-button.enabled:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(243, 156, 18, 0.4);
+        }
+
+        .download-section {
+            text-align: center;
+            margin: 30px 0;
+            display: none;
+        }
+
+        .download-section.visible {
+            display: block;
+        }
+
+        .download-button {
+            background: linear-gradient(135deg, #27ae60 0%, #219a52 100%);
+            color: white;
+            padding: 20px 40px;
+            border: none;
+            border-radius: 50px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .download-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(39, 174, 96, 0.4);
+        }
+
+        .alert {
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .alert.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            display: block;
+        }
+
+        .alert.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            display: block;
+        }
+
+        .stats {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 15px;
+            margin: 30px 0;
+            text-align: center;
+            display: none;
+        }
+
+        .stats.visible {
+            display: block;
+        }
+
+        .stats h3 {
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+
+        .stat-item {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>File Merger</h1>
+            <p>Upload Master file and New file, then merge to add only new rows</p>
+        </div>
+        
+        <div class="main-content">
+            <div class="upload-section">
+                <div class="file-upload-box master">
+                    <h3 style="color: #e74c3c; margin-bottom: 20px;">Master File</h3>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="masterFile" class="file-input" accept=".csv,.xlsx,.xls" />
+                        <button class="file-input-button master">
+                            Select Master File
+                        </button>
+                    </div>
+                    <div class="file-status" id="masterStatus">
+                        <strong>File:</strong> <span id="masterFileName"></span><br>
+                        <strong>Records:</strong> <span id="masterRecords"></span>
+                    </div>
+                </div>
+                
+                <div class="file-upload-box">
+                    <h3 style="color: #27ae60; margin-bottom: 20px;">New File</h3>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="newFile" class="file-input" accept=".csv,.xlsx,.xls" />
+                        <button class="file-input-button">
+                            Select New File
+                        </button>
+                    </div>
+                    <div class="file-status" id="newStatus">
+                        <strong>File:</strong> <span id="newFileName"></span><br>
+                        <strong>Records:</strong> <span id="newRecords"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="alert" id="alertBox"></div>
+
+            <div class="merge-section">
+                <button class="merge-button" id="mergeButton">
+                    Merge Files
+                </button>
+            </div>
+
+            <div class="stats" id="statsSection">
+                <h3>Merge Results</h3>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-number" id="totalMaster">0</div>
+                        <div class="stat-label">Master Records</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="totalNew">0</div>
+                        <div class="stat-label">New Records Added</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="totalSkipped">0</div>
+                        <div class="stat-label">Duplicates Skipped</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="totalFinal">0</div>
+                        <div class="stat-label">Total Final Records</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="download-section" id="downloadSection">
+                <button class="download-button" id="downloadButton">
+                    Download Merged File
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class SimpleMerger {
+            constructor() {
+                this.masterData = null;
+                this.newData = null;
+                this.mergedData = null;
+                this.masterHeaders = [];
+                
+                this.initEventListeners();
+            }
+
+            initEventListeners() {
+                document.getElementById('masterFile').addEventListener('change', (e) => this.handleMasterFile(e));
+                document.getElementById('newFile').addEventListener('change', (e) => this.handleNewFile(e));
+                document.getElementById('mergeButton').addEventListener('click', () => this.mergeFiles());
+                document.getElementById('downloadButton').addEventListener('click', () => this.downloadMergedFile());
+            }
+
+            handleMasterFile(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                this.parseFile(file, (data) => {
+                    this.masterData = data;
+                    this.masterHeaders = Object.keys(data[0] || {});
+                    
+                    document.getElementById('masterFileName').textContent = file.name;
+                    document.getElementById('masterRecords').textContent = data.length;
+                    document.getElementById('masterStatus').classList.add('uploaded');
+                    
+                    this.checkMergeReady();
+                    this.showAlert('Master file uploaded successfully!', 'success');
+                });
+            }
+
+            handleNewFile(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                this.parseFile(file, (data) => {
+                    this.newData = data;
+                    
+                    document.getElementById('newFileName').textContent = file.name;
+                    document.getElementById('newRecords').textContent = data.length;
+                    document.getElementById('newStatus').classList.add('uploaded');
+                    
+                    this.checkMergeReady();
+                    this.showAlert('New file uploaded successfully!', 'success');
+                });
+            }
+
+            parseFile(file, callback) {
+                const fileName = file.name.toLowerCase();
+                
+                if (fileName.endsWith('.csv')) {
+                    Papa.parse(file, {
+                        header: true,
+                        skipEmptyLines: true,
+                        complete: (results) => callback(results.data),
+                        error: (error) => this.showAlert('Error parsing CSV: ' + error.message, 'error')
+                    });
+                } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const data = new Uint8Array(e.target.result);
+                            const workbook = XLSX.read(data, { type: 'array' });
+                            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                            const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+                            
+                            if (jsonData.length > 0) {
+                                const headers = jsonData[0];
+                                const dataRows = jsonData.slice(1).map(row => {
+                                    const obj = {};
+                                    headers.forEach((header, index) => {
+                                        obj[header] = row[index] || '';
+                                    });
+                                    return obj;
+                                }).filter(row => Object.values(row).some(val => val !== ''));
+                                
+                                callback(dataRows);
+                            } else {
+                                callback([]);
+                            }
+                        } catch (error) {
+                            this.showAlert('Error parsing Excel file: ' + error.message, 'error');
+                        }
+                    };
+                    reader.readAsArrayBuffer(file);
+                } else {
+                    this.showAlert('Unsupported file type. Please use CSV or Excel files.', 'error');
+                }
+            }
+
+            checkMergeReady() {
+                const mergeButton = document.getElementById('mergeButton');
+                if (this.masterData && this.newData) {
+                    mergeButton.classList.add('enabled');
+                }
+            }
+
+            mergeFiles() {
+                if (!this.masterData || !this.newData) {
+                    this.showAlert('Please upload both master and new files first.', 'error');
+                    return;
+                }
+
+                try {
+                    // Use first column as unique key
+                    const keyColumn = this.masterHeaders[0];
+                    const existingKeys = new Set();
+                    
+                    // Get existing keys from master data
+                    this.masterData.forEach(row => {
+                        if (row[keyColumn]) {
+                            existingKeys.add(row[keyColumn].toString());
+                        }
+                    });
+
+                    // Filter new data to only include master columns and new records
+                    const newRecordsToAdd = [];
+                    let duplicatesSkipped = 0;
+
+                    this.newData.forEach(row => {
+                        const key = row[keyColumn] ? row[keyColumn].toString() : '';
+                        
+                        if (key && !existingKeys.has(key)) {
+                            // Create filtered row with only master columns
+                            const filteredRow = {};
+                            this.masterHeaders.forEach(header => {
+                                filteredRow[header] = row[header] || '';
+                            });
+                            newRecordsToAdd.push(filteredRow);
+                            existingKeys.add(key);
+                        } else if (key) {
+                            duplicatesSkipped++;
+                        }
+                    });
+
+                    // Combine master data with new records
+                    this.mergedData = [...this.masterData, ...newRecordsToAdd];
+
+                    // Update stats
+                    document.getElementById('totalMaster').textContent = this.masterData.length;
+                    document.getElementById('totalNew').textContent = newRecordsToAdd.length;
+                    document.getElementById('totalSkipped').textContent = duplicatesSkipped;
+                    document.getElementById('totalFinal').textContent = this.mergedData.length;
+
+                    // Show results
+                    document.getElementById('statsSection').classList.add('visible');
+                    document.getElementById('downloadSection').classList.add('visible');
+
+                    this.showAlert(`Merge complete! Added ${newRecordsToAdd.length} new records, skipped ${duplicatesSkipped} duplicates.`, 'success');
+
+                } catch (error) {
+                    this.showAlert('Error during merge: ' + error.message, 'error');
+                }
+            }
+
+            downloadMergedFile() {
+                if (!this.mergedData) {
+                    this.showAlert('No merged data available for download.', 'error');
+                    return;
+                }
+
+                try {
+                    const ws = XLSX.utils.json_to_sheet(this.mergedData);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, 'Merged Data');
+                    
+                    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
+                    const fileName = `merged_master_file_${timestamp}.xlsx`;
+                    
+                    XLSX.writeFile(wb, fileName);
+                    this.showAlert(`Downloaded: ${fileName}`, 'success');
+                } catch (error) {
+                    this.showAlert('Error downloading file: ' + error.message, 'error');
+                }
+            }
+
+            showAlert(message, type) {
+                const alertBox = document.getElementById('alertBox');
+                alertBox.textContent = message;
+                alertBox.className = `alert ${type}`;
+                
+                setTimeout(() => {
+                    alertBox.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        // Initialize the merger
+        document.addEventListener('DOMContentLoaded', () => {
+            new SimpleMerger();
+        });
+    </script>
+</body>
+</html>
